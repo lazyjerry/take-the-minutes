@@ -18,7 +18,7 @@ async function handleRequest(request) {
 		return new Response(formHTML, {
 			headers: { 'Content-Type': 'text/html;charset=UTF-8' }
 		})
-	} else if (request.method === 'POST') {
+	} else if (request.method === 'POST' && url.pathname === '/pdf') {
 		// 取得表單資料
 		const formData = await request.formData()
 		const data = formData.get('data') || '{}'
