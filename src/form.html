@@ -261,8 +261,25 @@
     setupTagInput('attendeesInput', 'attendeesTags');
     setupTagInput('observersInput', 'observersTags');
 
+    plannedContentEditor.on('text-change', function(delta, oldDelta, source) {
+      saveFormData();
+    });
+    discussionEditor.on('text-change', function(delta, oldDelta, source) {
+      saveFormData();
+    });
+    notesEditor.on('text-change', function(delta, oldDelta, source) {
+      saveFormData();
+    });
+    completedEditor.on('text-change', function(delta, oldDelta, source) {
+      saveFormData();
+    });
+    todoEditor.on('text-change', function(delta, oldDelta, source) {
+      saveFormData();
+    });
+
     /* 儲存表單資料 */
     function saveFormData() {
+      console.log("save");
       const data = {
         mainTitle: document.getElementById('mainTitle').value,
         subTitle: document.getElementById('subTitle').value,
