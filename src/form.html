@@ -9,8 +9,6 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
     <!-- Quill 富文本編輯器 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css" rel="stylesheet">
-    <!-- Select2 CSS -->
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/css/select2.min.css" rel="stylesheet" />
     <!-- Flatpickr 日期/時間選擇器 CSS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" />
     <!-- FileSaver, html-docx-js 等請在後方 script 中引用 -->
@@ -135,10 +133,11 @@
         <input type="text" class="form-control" id="observersInput" placeholder="輸入姓名後按 Enter" />
         <div id="observersTags" class="mt-2"></div>
       </div>
-      <!-- 會議紀錄：使用 select2 套件 -->
+      <!-- 會議紀錄 -->
       <div class="mb-3">
-        <label class="form-label">會議紀錄（選擇出席人或列席人，可多選）</label>
-        <select class="form-select" id="recordSelect" multiple></select>
+        <label class="form-label">會議紀錄</label>
+        <input type="text" class="form-control" id="recordSelect" placeholder="輸入姓名後按 Enter" />
+        <div id="recordSelectTags" class="mt-2"></div>
       </div>
       <!-- 以下為 5 個富文本編輯器，每個都配兩個按鈕 -->
       <div class="mb-3">
@@ -198,7 +197,6 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/js/select2.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html-docx-js/0.3.1/html-docx.js"></script>
@@ -242,37 +240,33 @@
       $container.css('height', newHeight + 'px');
     }
 
-
-    /* 初始化 Select2 */
-    $(document).ready(function() {
-      $('#recordSelect').select2({
-        placeholder: "請選擇會議紀錄",
-        width: '100%'
-      });
-    });
-
     /* 初始化 Flatpickr */
     flatpickr("#startDate", {});
     flatpickr("#endDate", {});
     flatpickr("#startTime", { enableTime: true, noCalendar: true, dateFormat: "H:i" });
     flatpickr("#endTime", { enableTime: true, noCalendar: true, dateFormat: "H:i" });
 
-    /* Tag 輸入: 出席人 / 列席 */
+    /* Tag 輸入: 出席人 / 列席 / 紀錄 */
     function setupTagInput(inputId, tagsContainerId) {
+      console.log(inputId, tagsContainerId);
       const input = document.getElementById(inputId);
       const container = document.getElementById(tagsContainerId);
       input.addEventListener('keydown', function(e) {
+        console.log(input);
+        console.log(container);
+        console.log(e.key);
         if (e.key === 'Enter' && input.value.trim() !== '') {
           e.preventDefault();
+
           addTag(input.value.trim(), container);
           input.value = '';
-          updateRecordSelect();
           saveFormData();
         }
       });
     }
 
     function addTag(text, container) {
+      console.log(text, container);
       const tag = document.createElement('span');
       tag.className = 'tag';
       tag.textContent = text;
@@ -280,34 +274,20 @@
       btn.textContent = 'x';
       btn.addEventListener('click', function() {
         container.removeChild(tag);
-        updateRecordSelect();
         saveFormData();
       });
       tag.appendChild(btn);
       container.appendChild(tag);
     }
 
-    function updateRecordSelect() {
-      const recordSelect = document.getElementById('recordSelect');
-      recordSelect.innerHTML = '';
-      const attendees = Array.from(document.getElementById('attendeesTags').children).map(el => el.firstChild.textContent);
-      const observers = Array.from(document.getElementById('observersTags').children).map(el => el.firstChild.textContent);
-      const combined = [...new Set([...attendees, ...observers])];
-      combined.forEach(name => {
-        const option = document.createElement('option');
-        option.value = name;
-        option.textContent = name;
-        recordSelect.appendChild(option);
-      });
-      if ($(recordSelect).data('select2')) {
-        $(recordSelect).trigger('change');
-      }
-    }
     setupTagInput('attendeesInput', 'attendeesTags');
     setupTagInput('observersInput', 'observersTags');
+    setupTagInput('recordSelect', 'recordSelectTags');
 
     /* 監聽 Quill 編輯器內容改變，及時存到 LocalStorage */
-    plannedContentEditor.on('text-change', function() { saveFormData(); });
+    plannedContentEditor.on('text-change', function() {
+      saveFormData();
+    });
     discussionEditor.on('text-change', function() { saveFormData(); });
     notesEditor.on('text-change', function() { saveFormData(); });
     completedEditor.on('text-change', function() { saveFormData(); });
@@ -326,7 +306,7 @@
         location: document.getElementById('location').value,
         attendees: Array.from(document.getElementById('attendeesTags').children).map(el => el.firstChild.textContent),
         observers: Array.from(document.getElementById('observersTags').children).map(el => el.firstChild.textContent),
-        recordSelect: Array.from(document.getElementById('recordSelect').selectedOptions).map(opt => opt.value),
+        recordSelect: Array.from(document.getElementById('recordSelectTags').children).map(el => el.firstChild.textContent),
         plannedContent: plannedContentEditor.root.innerHTML,
         discussion: discussionEditor.root.innerHTML,
         notes: notesEditor.root.innerHTML,
@@ -353,15 +333,19 @@
 
         const attendeesContainer = document.getElementById('attendeesTags');
         const observersContainer = document.getElementById('observersTags');
+        const recordSelectContainer = document.getElementById('recordSelectTags');
         attendeesContainer.innerHTML = '';
         observersContainer.innerHTML = '';
+        recordSelectContainer.innerHTML = '';
         if (data.attendees) {
           data.attendees.forEach(tag => addTag(tag, attendeesContainer));
         }
         if (data.observers) {
           data.observers.forEach(tag => addTag(tag, observersContainer));
         }
-        updateRecordSelect();
+        if (data.recordSelect) {
+          data.recordSelect.forEach(tag => addTag(tag, recordSelectContainer));
+        }
 
         // 還原 Quill 內容
         plannedContentEditor.clipboard.dangerouslyPasteHTML(data.plannedContent || '');
@@ -393,8 +377,10 @@
       // 表單將正常提交
     });
 
-    restoreFormData();
-    setDefaultSubtitle();
+    $(document).ready(function() {
+      restoreFormData();
+      setDefaultSubtitle();
+    });
 
     /* 匯出 JSON：附帶時間戳 */
     function exportJSON() {
@@ -436,6 +422,7 @@
     }
 
     </script>
+    <!--  -->
     <script>
     /* 假資料填充函式（僅示範） */
     function fillFields() {
@@ -450,14 +437,16 @@
 
       const attendeesContainer = document.getElementById('attendeesTags');
       const observersContainer = document.getElementById('observersTags');
+      const recordSelectContainer = document.getElementById('recordSelectTags');
       attendeesContainer.innerHTML = '';
       observersContainer.innerHTML = '';
+      recordSelectContainer.innerHTML = '';
       addTag('王小明', attendeesContainer);
       addTag('李大仁', attendeesContainer);
       addTag('陳怡君', attendeesContainer);
       addTag('林志玲', observersContainer);
       addTag('張國榮', observersContainer);
-      updateRecordSelect();
+      addTag('水果奶奶', recordSelectContainer);
 
       plannedContentEditor.clipboard.dangerouslyPasteHTML(`
 <p><strong>預計議題：</strong></p>
