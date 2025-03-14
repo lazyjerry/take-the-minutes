@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>會議紀錄產生器</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <!-- Quill 富文本編輯器 CSS -->
+    <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet" />
+    <!-- Select2 CSS -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/css/select2.min.css" rel="stylesheet" />
+    <!-- Flatpickr 日期/時間選擇器 CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" />
+    <!-- FileSaver, html-docx-js 等請在後方 script 中引用 -->
+    <style>
+      /* Tag 樣式 */
+    .tag {
+      display: inline-block;
+      background-color: #e2e6ea;
+      padding: 0.25rem 0.5rem;
+      border-radius: 0.25rem;
+      margin: 0.125rem;
+    }
+    .tag button {
+      border: none;
+      background: transparent;
+      margin-left: 0.5rem;
+      cursor: pointer;
+    }
+    /* 右下浮動送出保存按鈕 (主) */
+    .fab {
+      position: fixed;
+      right: 20px;
+      bottom: 20px;
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      background-color: #dc3545;
+      color: white;
+      border: none;
+      font-size: 18px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    /* 小型圓形浮動按鈕（匯出/匯入 JSON） */
+    .fab-sub {
+      position: fixed;
+      right: 30px;
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      background-color: #6c757d; /* 灰色 */
+      color: white;
+      border: none;
+      font-size: 12px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+      cursor: pointer;
+    }
+    /* 分別設定不同的 bottom 值，使其堆疊在主按鈕上方 */
+    #exportJsonBtn {
+      bottom: 200px; /* 調整以和主按鈕錯開 */
+    }
+    #importJsonBtn {
+      bottom: 130px; /* 調整以和匯出按鈕錯開 */
+    }
+  </style>
+  </head>
+
+  <body class="container py-4">
+    <h1 class="text-center m-3 mb-5">會議紀錄產生器</h1>
+    <!-- 表單以 POST 送出到 /pdf，不設 target -->
+    <form id="meetingForm" method="post" action="/pdf">
+      <!-- 隱藏欄位，用來存放整份 JSON 資料 -->
+      <input type="hidden" name="data" id="dataField" />
+      <!-- 會議名稱與副標題：同一行 -->
+      <div class="row mb-3">
+        <div class="col">
+          <label class="form-label">會議名稱</label>
+          <input type="text" class="form-control" id="mainTitle" placeholder="請輸入會議名稱" required />
+        </div>
+        <div class="col">
+          <label class="form-label">副標題 <small class="text-muted">(預設為當前日期 + 會議紀錄)</small></label>
+          <input type="text" class="form-control" id="subTitle" placeholder="例如：2025-04-05 會議紀錄" />
+        </div>
+      </div>
+      <!-- 會議目的 -->
+      <div class="mb-3">
+        <label class="form-label">會議目的</label>
+        <input type="text" class="form-control" id="meetingInfo" placeholder="請輸入會議目的" />
+      </div>
+      <!-- 地點 -->
+      <div class="mb-3">
+        <label class="form-label">地點</label>
+        <input type="text" class="form-control" id="location" placeholder="請輸入會議地點" />
+      </div>
+      <!-- 開始日期、開始時間、結束日期、結束時間 同一行 -->
+      <div class="row mb-3">
+        <div class="col">
+          <label class="form-label">開始日期</label>
+          <input type="text" class="form-control" id="startDate" placeholder="請選擇開始日期" />
+        </div>
+        <div class="col">
+          <label class="form-label">開始時間</label>
+          <input type="text" class="form-control" id="startTime" placeholder="請選擇開始時間" />
+        </div>
+        <div class="col">
+          <label class="form-label">結束日期</label>
+          <input type="text" class="form-control" id="endDate" placeholder="請選擇結束日期" />
+        </div>
+        <div class="col">
+          <label class="form-label">結束時間</label>
+          <input type="text" class="form-control" id="endTime" placeholder="請選擇結束時間" />
+        </div>
+      </div>
+      <!-- Tag 輸入欄位：出席人 -->
+      <div class="mb-3">
+        <label class="form-label">出席人</label>
+        <input type="text" class="form-control" id="attendeesInput" placeholder="輸入姓名後按 Enter" />
+        <div id="attendeesTags" class="mt-2"></div>
+      </div>
+      <!-- Tag 輸入欄位：列席 -->
+      <div class="mb-3">
+        <label class="form-label">列席</label>
+        <input type="text" class="form-control" id="observersInput" placeholder="輸入姓名後按 Enter" />
+        <div id="observersTags" class="mt-2"></div>
+      </div>
+      <!-- 會議紀錄：使用 select2 套件 -->
+      <div class="mb-3">
+        <label class="form-label">會議紀錄（選擇出席人或列席人，可多選）</label>
+        <select class="form-select" id="recordSelect" multiple></select>
+      </div>
+      <!-- 多行欄位，採用富文本編輯器 -->
+      <div class="mb-3">
+        <label class="form-label">預計內容 <small class="text-muted">(預計內容為會議前預估要執行的會議排程、確認內容)</small></label>
+        <div id="plannedContentEditor" style="height: 150px;"></div>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">需討論 / 確認項目 <small class="text-muted">(請列點，使用其他醒目顏色區別結論與原本問題)</small></label>
+        <div id="discussionEditor" style="height: 150px;"></div>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">備註 / 臨時動議 <small class="text-muted">(如果有其他事項列在此)</small></label>
+        <div id="notesEditor" style="height: 150px;"></div>
+      </div>
+      <!-- 分隔線（位於備註下方、已完成進度上方） -->
+      <div class="text-center my-4">
+        — 以下提供紀錄使用，如無特別需求請於會後確認是否有問題並且提出 —
+      </div>
+      <div class="mb-3">
+        <label class="form-label">已完成進度</label>
+        <div id="completedEditor" style="height: 150px;"></div>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">待辦事項</label>
+        <div id="todoEditor" style="height: 150px;"></div>
+      </div>
+      <!-- 匯入 JSON 的 input hidden -->
+      <input type="file" id="importJsonInput" style="display:none" accept=".json" onchange="importJSON(event)" />
+      <!-- 右下浮動圓形按鈕：匯出JSON、匯入JSON、送出保存 -->
+      <button type="button" class="fab-sub" id="exportJsonBtn" onclick="exportJSON()" title="匯出 JSON">匯出 JSON</button>
+      <button type="button" class="fab-sub" id="importJsonBtn" onclick="document.getElementById('importJsonInput').click()" title="匯入 JSON">匯入 JSON
+      </button>
+      <button type="submit" class="fab" id="submitBtn" title="送出保存">送出保存</button>
+    </form>
+    <!-- 引入 Bootstrap、Quill、Select2、Flatpickr、FileSaver.js 與 html-docx.js -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/js/select2.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html-docx-js/0.3.1/html-docx.js"></script>
+    <script>
+    /* Quill 工具列 */
+    const quillOptions = {
+      theme: 'snow',
+      modules: {
+        toolbar: [
+          [{ header: [1, 2, 3, false] }],
+          ['bold', 'italic', 'underline'],
+          ['link'],
+          [{ list: 'ordered' }, { list: 'bullet' }]
+        ]
+      }
+    };
+    const plannedContentEditor = new Quill('#plannedContentEditor', quillOptions);
+    const discussionEditor = new Quill('#discussionEditor', quillOptions);
+    const notesEditor = new Quill('#notesEditor', quillOptions);
+    const completedEditor = new Quill('#completedEditor', quillOptions);
+    const todoEditor = new Quill('#todoEditor', quillOptions);
+
+    /* 初始化 Select2 */
+    $(document).ready(function() {
+      $('#recordSelect').select2({
+        placeholder: "請選擇會議紀錄",
+        width: '100%'
+      });
+    });
+
+    /* 初始化 Flatpickr */
+    flatpickr("#startDate", {});
+    flatpickr("#endDate", {});
+    flatpickr("#startTime", { enableTime: true, noCalendar: true, dateFormat: "H:i" });
+    flatpickr("#endTime", { enableTime: true, noCalendar: true, dateFormat: "H:i" });
+
+    /* Tag 輸入: 出席人 / 列席 */
+    function setupTagInput(inputId, tagsContainerId) {
+      const input = document.getElementById(inputId);
+      const container = document.getElementById(tagsContainerId);
+      input.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && input.value.trim() !== '') {
+          e.preventDefault();
+          addTag(input.value.trim(), container);
+          input.value = '';
+          updateRecordSelect();
+          saveFormData();
+        }
+      });
+    }
+
+    function addTag(text, container) {
+      const tag = document.createElement('span');
+      tag.className = 'tag';
+      tag.textContent = text;
+      const btn = document.createElement('button');
+      btn.textContent = 'x';
+      btn.addEventListener('click', function() {
+        container.removeChild(tag);
+        updateRecordSelect();
+        saveFormData();
+      });
+      tag.appendChild(btn);
+      container.appendChild(tag);
+    }
+
+    function updateRecordSelect() {
+      const recordSelect = document.getElementById('recordSelect');
+      recordSelect.innerHTML = '';
+      const attendees = Array.from(document.getElementById('attendeesTags').children).map(el => el.firstChild.textContent);
+      const observers = Array.from(document.getElementById('observersTags').children).map(el => el.firstChild.textContent);
+      const combined = [...new Set([...attendees, ...observers])];
+      combined.forEach(name => {
+        const option = document.createElement('option');
+        option.value = name;
+        option.textContent = name;
+        recordSelect.appendChild(option);
+      });
+      if ($(recordSelect).data('select2')) {
+        $(recordSelect).trigger('change');
+      }
+    }
+    setupTagInput('attendeesInput', 'attendeesTags');
+    setupTagInput('observersInput', 'observersTags');
+
+    /* 儲存表單資料 */
+    function saveFormData() {
+      const data = {
+        mainTitle: document.getElementById('mainTitle').value,
+        subTitle: document.getElementById('subTitle').value,
+        meetingInfo: document.getElementById('meetingInfo').value,
+        startDate: document.getElementById('startDate').value,
+        startTime: document.getElementById('startTime').value,
+        endDate: document.getElementById('endDate').value,
+        endTime: document.getElementById('endTime').value,
+        location: document.getElementById('location').value,
+        attendees: Array.from(document.getElementById('attendeesTags').children).map(el => el.firstChild.textContent),
+        observers: Array.from(document.getElementById('observersTags').children).map(el => el.firstChild.textContent),
+        recordSelect: Array.from(document.getElementById('recordSelect').selectedOptions).map(opt => opt.value),
+        plannedContent: plannedContentEditor.clipboard.dangerouslyPasteHTML ? plannedContentEditor.root.innerHTML : plannedContentEditor.root.innerText,
+        discussion: discussionEditor.clipboard.dangerouslyPasteHTML ? discussionEditor.root.innerHTML : discussionEditor.root.innerText,
+        notes: notesEditor.clipboard.dangerouslyPasteHTML ? notesEditor.root.innerHTML : notesEditor.root.innerText,
+        completed: completedEditor.clipboard.dangerouslyPasteHTML ? completedEditor.root.innerHTML : completedEditor.root.innerText,
+        todo: todoEditor.clipboard.dangerouslyPasteHTML ? todoEditor.root.innerHTML : todoEditor.root.innerText
+      };
+      localStorage.setItem('meetingFormData', JSON.stringify(data));
+    }
+
+    /* 還原表單資料 */
+    function restoreFormData() {
+      const saved = localStorage.getItem('meetingFormData');
+      if (!saved) return;
+      try {
+        const data = JSON.parse(saved);
+        document.getElementById('mainTitle').value = data.mainTitle || '';
+        document.getElementById('subTitle').value = data.subTitle || '';
+        document.getElementById('meetingInfo').value = data.meetingInfo || '';
+        document.getElementById('location').value = data.location || '';
+        document.getElementById('startDate').value = data.startDate || '';
+        document.getElementById('startTime').value = data.startTime || '';
+        document.getElementById('endDate').value = data.endDate || '';
+        document.getElementById('endTime').value = data.endTime || '';
+
+        const attendeesContainer = document.getElementById('attendeesTags');
+        const observersContainer = document.getElementById('observersTags');
+        attendeesContainer.innerHTML = '';
+        observersContainer.innerHTML = '';
+        if (data.attendees) {
+          data.attendees.forEach(tag => addTag(tag, attendeesContainer));
+        }
+        if (data.observers) {
+          data.observers.forEach(tag => addTag(tag, observersContainer));
+        }
+        updateRecordSelect();
+
+        plannedContentEditor.clipboard.dangerouslyPasteHTML(data.plannedContent || '');
+        discussionEditor.clipboard.dangerouslyPasteHTML(data.discussion || '');
+        notesEditor.clipboard.dangerouslyPasteHTML(data.notes || '');
+        completedEditor.clipboard.dangerouslyPasteHTML(data.completed || '');
+        todoEditor.clipboard.dangerouslyPasteHTML(data.todo || '');
+      } catch (err) {
+        console.error('restoreFormData 時發生錯誤：', err);
+        alert('無法還原資料，可能 JSON 格式不正確。');
+      }
+    }
+
+    /* 副標題預設值 */
+    function setDefaultSubtitle() {
+      const subTitleInput = document.getElementById('subTitle');
+      if (!subTitleInput.value) {
+        const today = new Date().toISOString().slice(0, 10);
+        subTitleInput.value = today + " 會議紀錄";
+      }
+    }
+
+    /* 表單送出 */
+    document.getElementById('meetingForm').addEventListener('submit', function(e) {
+      saveFormData();
+      setDefaultSubtitle();
+      const data = localStorage.getItem('meetingFormData');
+      document.getElementById('dataField').value = data;
+      // 表單將正常提交
+    });
+
+    restoreFormData();
+    setDefaultSubtitle();
+
+    /* 匯出 JSON：附帶時間戳 */
+    function exportJSON() {
+      const data = localStorage.getItem('meetingFormData');
+      if (!data) {
+        alert("尚無資料可匯出，請先填寫表單或使用填充功能。");
+        return;
+      }
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      const hour = String(now.getHours()).padStart(2, '0');
+      const minute = String(now.getMinutes()).padStart(2, '0');
+      const second = String(now.getSeconds()).padStart(2, '0');
+      const dateTimeStr = `${year}_${month}_${day}_${hour}_${minute}_${second}`;
+      const blob = new Blob([data], { type: "application/json;charset=utf-8" });
+      saveAs(blob, `meetingFormData_${dateTimeStr}.json`);
+    }
+
+    /* 匯入 JSON */
+    function importJSON(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const importedData = JSON.parse(e.target.result);
+          localStorage.setItem('meetingFormData', JSON.stringify(importedData));
+          restoreFormData();
+          alert("JSON 匯入成功，表單內容已更新。");
+        } catch (err) {
+          console.error(err);
+          alert("匯入失敗，檔案格式可能有誤。");
+        }
+      };
+      reader.readAsText(file);
+      event.target.value = "";
+    }
+
+    </script>
+    <script>
+    /* 假資料填充函式 */
+    function fillFields() {
+      document.getElementById('mainTitle').value = '2025年度第一季業務檢討會議';
+      document.getElementById('subTitle').value = new Date().toISOString().slice(0, 10) + ' 業務檢討紀錄';
+      document.getElementById('meetingInfo').value = '針對2025年度第一季各部門業務執行狀況進行全面檢討，探討改進策略與未來發展方向。';
+      document.getElementById('location').value = '台北總公司會議室3';
+      document.getElementById('startDate').value = '2025-04-05';
+      document.getElementById('startTime').value = '09:30';
+      document.getElementById('endDate').value = '2025-04-05';
+      document.getElementById('endTime').value = '12:00';
+
+      const attendeesContainer = document.getElementById('attendeesTags');
+      const observersContainer = document.getElementById('observersTags');
+      attendeesContainer.innerHTML = '';
+      observersContainer.innerHTML = '';
+      addTag('王小明', attendeesContainer);
+      addTag('李大仁', attendeesContainer);
+      addTag('陳怡君', attendeesContainer);
+      addTag('林志玲', observersContainer);
+      addTag('張國榮', observersContainer);
+      updateRecordSelect();
+
+      plannedContentEditor.clipboard.dangerouslyPasteHTML(`
+<p><strong>預計議題：</strong></p>
+<ol>
+  <li>市場趨勢分析：預測未來季度市場動向與競爭策略。</li>
+  <li>銷售數據檢討：回顧上季度銷售表現，找出成功與不足之處。</li>
+  <li>產品開發進度：各部門報告產品研發進度，討論技術挑戰。</li>
+  <li>客戶回饋整理：彙整主要客戶意見，分析改進方向。</li>
+</ol>
+<p>
+  詳細內容請參閱報告連結：
+  <a href="https://example.com/report" target="_blank">https://example.com/report</a>
+</p>
+`);
+
+      discussionEditor.clipboard.dangerouslyPasteHTML(`
+<p><strong>討論重點：</strong></p>
+<ol>
+  <li>調整銷售策略以應對市場變化，增加新客戶開發。</li>
+  <li>改進產品設計，提升使用者體驗。</li>
+  <li>客戶服務品質提升措施，並定期回訪重點客戶。</li>
+</ol>
+<p>請各部門在下一次會議前準備相關報告。</p>
+`);
+
+      notesEditor.clipboard.dangerouslyPasteHTML(`
+<p><strong>注意事項：</strong></p>
+<ol>
+  <li>資源分配需經管理層確認，避免重複投資。</li>
+  <li>數據準確性需進一步核對，各部門報告請附上原始資料。</li>
+  <li>建議進行市場調研，了解競爭對手動態。</li>
+</ol>
+<p>
+  更多資訊請參考注意事項說明：
+  <a href="https://example.com/notes" target="_blank">https://example.com/notes</a>
+</p>
+`);
+
+      completedEditor.clipboard.dangerouslyPasteHTML(`
+<p><strong>已完成項目：</strong></p>
+<ol>
+  <li>各部門初步報告已提交，初步數據已整理。</li>
+  <li>前期數據分析報告整理完畢，重點問題已標註。</li>
+  <li>跨部門協作方案已確定，具體執行細節待定。</li>
+</ol>
+`);
+
+      todoEditor.clipboard.dangerouslyPasteHTML(`
+<p><strong>待辦事項：</strong></p>
+<ol>
+  <li>修正產品細節，完善功能測試。</li>
+  <li>完善客戶服務流程，提升回應速度。</li>
+  <li>更新市場調研報告，提供競爭對手分析。</li>
+</ol>
+`);
+      saveFormData();
+    }
+
+    </script>
+  </body>
+
+</html>
