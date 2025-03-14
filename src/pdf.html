@@ -101,7 +101,7 @@
     </script>
     <div id="pdfContent">
       <!-- 標題區 -->
-      <h1>會議紀錄</h1>
+      <h1 id="mainTitle">會議紀錄</h1>
       <h2 id="subtitle"></h2>
       <!-- 會議資訊表格 (4 欄版型示例) -->
       <table>
@@ -179,7 +179,8 @@
       }
     }
 
-    // 依據 transformContent 結果，填入 pdfContent
+
+    document.getElementById("mainTitle").textContent = data.mainTitle || "";
     document.getElementById("subtitle").textContent = data.subTitle || "";
 
     // 會議目的

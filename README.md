@@ -42,7 +42,7 @@
 ### 1. 下載專案
 
 ```bash
-git clone https://github.com/your-repo/take-the-minutes.git
+git clone https://github.com/lazyjerry/take-the-minutes.git
 cd take-the-minutes
 ```
 
