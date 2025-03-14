@@ -8,7 +8,7 @@
     <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
     <!-- Quill 富文本編輯器 CSS -->
-    <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css" rel="stylesheet">
     <!-- Select2 CSS -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/css/select2.min.css" rel="stylesheet" />
     <!-- Flatpickr 日期/時間選擇器 CSS -->
@@ -16,68 +16,70 @@
     <!-- FileSaver, html-docx-js 等請在後方 script 中引用 -->
     <style>
       /* Tag 樣式 */
-    .tag {
-      display: inline-block;
-      background-color: #e2e6ea;
-      padding: 0.25rem 0.5rem;
-      border-radius: 0.25rem;
-      margin: 0.125rem;
-    }
-    .tag button {
-      border: none;
-      background: transparent;
-      margin-left: 0.5rem;
-      cursor: pointer;
-    }
-    /* 右下浮動送出保存按鈕 (主) */
-    .fab {
-      position: fixed;
-      right: 20px;
-      bottom: 20px;
-      width: 100px;
-      height: 100px;
-      border-radius: 50%;
-      background-color: #dc3545;
-      color: white;
-      border: none;
-      font-size: 18px;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 1000;
-    }
-    /* 小型圓形浮動按鈕（匯出/匯入 JSON） */
-    .fab-sub {
-      position: fixed;
-      right: 30px;
-      width: 50px;
-      height: 50px;
-      border-radius: 50%;
-      background-color: #6c757d; /* 灰色 */
-      color: white;
-      border: none;
-      font-size: 12px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 999;
-      cursor: pointer;
-    }
-    /* 分別設定不同的 bottom 值，使其堆疊在主按鈕上方 */
-    #exportJsonBtn {
-      bottom: 200px; /* 調整以和主按鈕錯開 */
-    }
-    #importJsonBtn {
-      bottom: 130px; /* 調整以和匯出按鈕錯開 */
-    }
-  </style>
+      .tag {
+        display: inline-block;
+        background-color: #e2e6ea;
+        padding: 0.25rem 0.5rem;
+        border-radius: 0.25rem;
+        margin: 0.125rem;
+      }
+      .tag button {
+        border: none;
+        background: transparent;
+        margin-left: 0.5rem;
+        cursor: pointer;
+      }
+
+      /* 右下浮動送出保存按鈕 (主) */
+      .fab {
+        position: fixed;
+        right: 20px;
+        bottom: 20px;
+        width: 100px;
+        height: 100px;
+        border-radius: 50%;
+        background-color: #dc3545;
+        color: white;
+        border: none;
+        font-size: 18px;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+      }
+
+      /* 小型圓形浮動按鈕（匯出/匯入 JSON） */
+      .fab-sub {
+        position: fixed;
+        right: 30px;
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        background-color: #6c757d; /* 灰色 */
+        color: white;
+        border: none;
+        font-size: 12px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 999;
+        cursor: pointer;
+      }
+      /* 分別設定不同的 bottom 值，使其堆疊在主按鈕上方 */
+      #exportJsonBtn {
+        bottom: 200px; /* 調整以和主按鈕錯開 */
+      }
+      #importJsonBtn {
+        bottom: 130px; /* 調整以和匯出按鈕錯開 */
+      }
+    </style>
   </head>
 
   <body class="container py-4">
     <h1 class="text-center m-3 mb-5">會議紀錄產生器</h1>
-    <!-- 表單以 POST 送出到 /pdf，不設 target -->
+    <!-- 表單以 POST 送出到 /pdf -->
     <form id="meetingForm" method="post" action="/pdf">
       <!-- 隱藏欄位，用來存放整份 JSON 資料 -->
       <input type="hidden" name="data" id="dataField" />
@@ -138,30 +140,51 @@
         <label class="form-label">會議紀錄（選擇出席人或列席人，可多選）</label>
         <select class="form-select" id="recordSelect" multiple></select>
       </div>
-      <!-- 多行欄位，採用富文本編輯器 -->
+      <!-- 以下為 5 個富文本編輯器，每個都配兩個按鈕 -->
       <div class="mb-3">
-        <label class="form-label">預計內容 <small class="text-muted">(預計內容為會議前預估要執行的會議排程、確認內容)</small></label>
-        <div id="plannedContentEditor" style="height: 150px;"></div>
+        <label class="form-label">
+          預計內容</label>
+        <small class="text-muted">(預計內容為會議前預估要執行的會議排程、確認內容)</small>
+        <button type="button" class="float-end btn btn-sm btn-outline-success ms-2" onclick="adjustEditorHeight('plannedContentEditor', +20)">拉高</button>
+        <button type="button" class="float-end btn btn-sm btn-outline-primary" onclick="adjustEditorHeight('plannedContentEditor', -20)">縮小</button>
+        <!-- 預設高度 300px -->
+        <div id="plannedContentEditor" style="height: 300px;"></div>
       </div>
       <div class="mb-3">
-        <label class="form-label">需討論 / 確認項目 <small class="text-muted">(請列點，使用其他醒目顏色區別結論與原本問題)</small></label>
-        <div id="discussionEditor" style="height: 150px;"></div>
+        <label class="form-label">
+          需討論 / 確認項目</label>
+        <small class="text-muted">(請列點，使用其他醒目顏色區別結論與原本問題)</small>
+        <button type="button" class="float-end btn btn-sm btn-outline-success ms-2" onclick="adjustEditorHeight('discussionEditor', +20)">拉高</button>
+        <button type="button" class="float-end btn btn-sm btn-outline-primary" onclick="adjustEditorHeight('discussionEditor', -20)">縮小</button>
+        <div id="discussionEditor" style="height: 300px;"></div>
       </div>
       <div class="mb-3">
-        <label class="form-label">備註 / 臨時動議 <small class="text-muted">(如果有其他事項列在此)</small></label>
-        <div id="notesEditor" style="height: 150px;"></div>
+        <label class="form-label">
+          備註 / 臨時動議</label>
+        <small class="text-muted">(如果有其他事項列在此)</small>
+        <button type="button" class="float-end btn btn-sm btn-outline-success ms-2" onclick="adjustEditorHeight('notesEditor', +20)">拉高</button>
+        <button type="button" class="float-end btn btn-sm btn-outline-primary" onclick="adjustEditorHeight('notesEditor', -20)">縮小</button>
+        <div id="notesEditor" style="height: 300px;"></div>
       </div>
-      <!-- 分隔線（位於備註下方、已完成進度上方） -->
+      <!-- 分隔線 -->
       <div class="text-center my-4">
         — 以下提供紀錄使用，如無特別需求請於會後確認是否有問題並且提出 —
       </div>
       <div class="mb-3">
-        <label class="form-label">已完成進度</label>
-        <div id="completedEditor" style="height: 150px;"></div>
+        <label class="form-label">
+          已完成進度
+        </label>
+        <button type="button" class="float-end btn btn-sm btn-outline-success ms-2" onclick="adjustEditorHeight('completedEditor', +20)">拉高</button>
+        <button type="button" class="float-end btn btn-sm btn-outline-primary" onclick="adjustEditorHeight('completedEditor', -20)">縮小</button>
+        <div id="completedEditor" style="height: 300px;"></div>
       </div>
       <div class="mb-3">
-        <label class="form-label">待辦事項</label>
-        <div id="todoEditor" style="height: 150px;"></div>
+        <label class="form-label">
+          待辦事項
+        </label>
+        <button type="button" class="float-end btn btn-sm btn-outline-success ms-2" onclick="adjustEditorHeight('todoEditor', +20)">拉高</button>
+        <button type="button" class="float-end btn btn-sm btn-outline-primary" onclick="adjustEditorHeight('todoEditor', -20)">縮小</button>
+        <div id="todoEditor" style="height: 300px;"></div>
       </div>
       <!-- 匯入 JSON 的 input hidden -->
       <input type="file" id="importJsonInput" style="display:none" accept=".json" onchange="importJSON(event)" />
@@ -173,7 +196,7 @@
     </form>
     <!-- 引入 Bootstrap、Quill、Select2、Flatpickr、FileSaver.js 與 html-docx.js -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/js/select2.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
@@ -192,11 +215,33 @@
         ]
       }
     };
+
     const plannedContentEditor = new Quill('#plannedContentEditor', quillOptions);
     const discussionEditor = new Quill('#discussionEditor', quillOptions);
     const notesEditor = new Quill('#notesEditor', quillOptions);
     const completedEditor = new Quill('#completedEditor', quillOptions);
     const todoEditor = new Quill('#todoEditor', quillOptions);
+
+    /* 調整高度函式：delta 為 +50 / -50 等等 */
+    function adjustEditorHeight(editorId, delta) {
+
+      // 用 jQuery 選擇器取代 document.querySelector
+      const $container = $('#' + editorId);
+      if (!$container.length) return; // 如果找不到元素就直接 return
+
+      // 透過 jQuery 的 css() 取得高度
+      let currentHeight = parseInt($container.css('height'), 10);
+
+      let newHeight = currentHeight + delta;
+      // 設定最小高度 150px
+      if (newHeight < 150) {
+        newHeight = 150;
+      }
+
+      // 透過 jQuery 的 css() 設定新高度
+      $container.css('height', newHeight + 'px');
+    }
+
 
     /* 初始化 Select2 */
     $(document).ready(function() {
@@ -261,25 +306,15 @@
     setupTagInput('attendeesInput', 'attendeesTags');
     setupTagInput('observersInput', 'observersTags');
 
-    plannedContentEditor.on('text-change', function(delta, oldDelta, source) {
-      saveFormData();
-    });
-    discussionEditor.on('text-change', function(delta, oldDelta, source) {
-      saveFormData();
-    });
-    notesEditor.on('text-change', function(delta, oldDelta, source) {
-      saveFormData();
-    });
-    completedEditor.on('text-change', function(delta, oldDelta, source) {
-      saveFormData();
-    });
-    todoEditor.on('text-change', function(delta, oldDelta, source) {
-      saveFormData();
-    });
+    /* 監聽 Quill 編輯器內容改變，及時存到 LocalStorage */
+    plannedContentEditor.on('text-change', function() { saveFormData(); });
+    discussionEditor.on('text-change', function() { saveFormData(); });
+    notesEditor.on('text-change', function() { saveFormData(); });
+    completedEditor.on('text-change', function() { saveFormData(); });
+    todoEditor.on('text-change', function() { saveFormData(); });
 
-    /* 儲存表單資料 */
+    /* 儲存表單資料到 LocalStorage */
     function saveFormData() {
-      console.log("save");
       const data = {
         mainTitle: document.getElementById('mainTitle').value,
         subTitle: document.getElementById('subTitle').value,
@@ -292,11 +327,11 @@
         attendees: Array.from(document.getElementById('attendeesTags').children).map(el => el.firstChild.textContent),
         observers: Array.from(document.getElementById('observersTags').children).map(el => el.firstChild.textContent),
         recordSelect: Array.from(document.getElementById('recordSelect').selectedOptions).map(opt => opt.value),
-        plannedContent: plannedContentEditor.clipboard.dangerouslyPasteHTML ? plannedContentEditor.root.innerHTML : plannedContentEditor.root.innerText,
-        discussion: discussionEditor.clipboard.dangerouslyPasteHTML ? discussionEditor.root.innerHTML : discussionEditor.root.innerText,
-        notes: notesEditor.clipboard.dangerouslyPasteHTML ? notesEditor.root.innerHTML : notesEditor.root.innerText,
-        completed: completedEditor.clipboard.dangerouslyPasteHTML ? completedEditor.root.innerHTML : completedEditor.root.innerText,
-        todo: todoEditor.clipboard.dangerouslyPasteHTML ? todoEditor.root.innerHTML : todoEditor.root.innerText
+        plannedContent: plannedContentEditor.root.innerHTML,
+        discussion: discussionEditor.root.innerHTML,
+        notes: notesEditor.root.innerHTML,
+        completed: completedEditor.root.innerHTML,
+        todo: todoEditor.root.innerHTML
       };
       localStorage.setItem('meetingFormData', JSON.stringify(data));
     }
@@ -328,6 +363,7 @@
         }
         updateRecordSelect();
 
+        // 還原 Quill 內容
         plannedContentEditor.clipboard.dangerouslyPasteHTML(data.plannedContent || '');
         discussionEditor.clipboard.dangerouslyPasteHTML(data.discussion || '');
         notesEditor.clipboard.dangerouslyPasteHTML(data.notes || '');
@@ -401,7 +437,7 @@
 
     </script>
     <script>
-    /* 假資料填充函式 */
+    /* 假資料填充函式（僅示範） */
     function fillFields() {
       document.getElementById('mainTitle').value = '2025年度第一季業務檢討會議';
       document.getElementById('subTitle').value = new Date().toISOString().slice(0, 10) + ' 業務檢討紀錄';
@@ -431,10 +467,6 @@
   <li>產品開發進度：各部門報告產品研發進度，討論技術挑戰。</li>
   <li>客戶回饋整理：彙整主要客戶意見，分析改進方向。</li>
 </ol>
-<p>
-  詳細內容請參閱報告連結：
-  <a href="https://example.com/report" target="_blank">https://example.com/report</a>
-</p>
 `);
 
       discussionEditor.clipboard.dangerouslyPasteHTML(`
@@ -444,7 +476,6 @@
   <li>改進產品設計，提升使用者體驗。</li>
   <li>客戶服務品質提升措施，並定期回訪重點客戶。</li>
 </ol>
-<p>請各部門在下一次會議前準備相關報告。</p>
 `);
 
       notesEditor.clipboard.dangerouslyPasteHTML(`
@@ -454,10 +485,6 @@
   <li>數據準確性需進一步核對，各部門報告請附上原始資料。</li>
   <li>建議進行市場調研，了解競爭對手動態。</li>
 </ol>
-<p>
-  更多資訊請參考注意事項說明：
-  <a href="https://example.com/notes" target="_blank">https://example.com/notes</a>
-</p>
 `);
 
       completedEditor.clipboard.dangerouslyPasteHTML(`
