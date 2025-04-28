@@ -12,5 +12,9 @@
 		"@cloudflare/vitest-pool-workers": "^0.7.5",
 		"vitest": "~3.0.7",
 		"wrangler": "^4.0.0"
+	},
+	"dependencies": {
+		"@tailwindcss/cli": "^4.1.4",
+		"tailwindcss": "^4.1.4"
 	}
 }
